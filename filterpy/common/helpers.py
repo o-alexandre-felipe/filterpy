@@ -19,6 +19,7 @@ for more information.
 
 from __future__ import print_function
 from collections import defaultdict
+from filterpy.common.properties import ClassProperty
 import copy
 import inspect
 import numpy as np
@@ -112,7 +113,8 @@ class Saver(object):
         # is computed only on access. I use this trick a lot to minimize
         # computing unused information.
         self.properties = inspect.getmembers(
-            type(kf), lambda o: isinstance(o, property))
+            type(kf), lambda o: 
+                isinstance(o, (property, ClassProperty)))
 
         if save_current:
             self.save()
