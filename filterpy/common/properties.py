@@ -82,13 +82,14 @@ def as_matrix(shape, v, name='matrix', multiplicative=True):
 
   if (M,N) == m.shape:
     return m
+    
+  if m.ndim <= 1 and (M == 1 or N == 1) and (M * N == m.size):
+    return m.reshape((M, N))
   if m.ndim == 0:
     if m == 0:
       return np.zeros((M, N))
     elif multiplicative and M == N:
       return m * np.eye(M, N)
-  if m.ndim <= 1 and (M == 1 or N == 1):
-    return m.reshape((M, N))
   # Any of the above cases matched
   raise ValueError("Expected {} to be of shape {}, value has shape {}"
       .format(name, shape, m.shape))
