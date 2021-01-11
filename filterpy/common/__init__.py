@@ -17,8 +17,9 @@ for more information.
 
 from __future__ import absolute_import
 
-__all__ = ["helpers", "discretization", "kinematic"]
+__all__ = ["helpers", "discretization", "kinematic", "properties"]
 
 from .helpers import *
 from .discretization import *
 from .kinematic import *
+from .properties import *
