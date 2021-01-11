@@ -166,14 +166,7 @@ class MerweScaledSigmaPoints(object):
 
         lambda_ = self.alpha**2 * (n + self.kappa) - n
         U = self.sqrt((lambda_ + n)*P)
-
-        sigmas = np.zeros((2*n+1, n))
-        sigmas[0] = x
-        for k in range(n):
-            # pylint: disable=bad-whitespace
-            sigmas[k+1]   = self.subtract(x, -U[k])
-            sigmas[n+k+1] = self.subtract(x, U[k])
-
+        sigmas = np.hstack([x, (x - U), (x + U)]).transpose()
         return sigmas
 
 
@@ -349,11 +342,7 @@ class JulierSigmaPoints(object):
         # Take transpose so we can access with U[i]
         U = self.sqrt((n + self.kappa) * P)
 
-        sigmas[0] = x
-        for k in range(n):
-            # pylint: disable=bad-whitespace
-            sigmas[k+1]   = self.subtract(x, -U[k])
-            sigmas[n+k+1] = self.subtract(x, U[k])
+        sigmas = np.hstack([x, (x - U), (x + U)]).transpose()
         return sigmas
 
 
@@ -507,10 +496,9 @@ class SimplexSigmaPoints(object):
             Istar = np.r_[np.c_[Istar, np.zeros((Istar.shape[0]))], row] # pylint: disable=unsubscriptable-object
 
         I = np.sqrt(n)*Istar
-        scaled_unitary = (U.T).dot(I)
+        sigmas = (x - np.dot(U, I)).transpose()
 
-        sigmas = self.subtract(x, -scaled_unitary)
-        return sigmas.T
+        return sigmas
 
 
     def _compute_weights(self):

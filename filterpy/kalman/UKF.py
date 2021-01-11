@@ -26,7 +26,7 @@ from numpy import eye, zeros, dot, isscalar, outer
 from scipy.linalg import cholesky
 from filterpy.kalman import unscented_transform
 from filterpy.stats import logpdf
-from filterpy.common import pretty_str
+from filterpy.common import pretty_str, properties
 
 
 class UnscentedKalmanFilter(object):
@@ -280,6 +280,15 @@ class UnscentedKalmanFilter(object):
     .. [6] R. Van der Merwe "Sigma-Point Kalman Filters for Probabilitic
            Inference in Dynamic State-Space Models" (Doctoral dissertation)
     """
+    # overridable parameters guarded by checks
+    x = properties.ClassProperty('x')
+    P = properties.ClassProperty('P')
+    Q = properties.ClassProperty('Q')
+    F = properties.ClassProperty('F')
+    H = properties.ClassProperty('H')
+    R = properties.ClassProperty('R')
+    M = properties.ClassProperty('M')
+    z = properties.ClassProperty('z')
 
     def __init__(self, dim_x, dim_z, dt, hx, fx, points,
                  sqrt_fn=None, x_mean_fn=None, z_mean_fn=None,
@@ -290,8 +299,18 @@ class UnscentedKalmanFilter(object):
         Create a Kalman filter. You are responsible for setting the
         various state variables to reasonable values; the defaults below will
         not give you a functional filter.
-
         """
+
+        # Set templates that will hook the assignments and cast to
+        # the specific shape
+        self.x = properties.MatrixTemplate(dim_x, 1)
+        self.P = properties.MatrixTemplate(dim_x, dim_x)
+        self.Q = properties.MatrixTemplate(dim_x, dim_x)
+        self.F = properties.MatrixFunctionTemplate(dim_x, dim_x)
+        self.H = properties.MatrixFunctionTemplate(dim_z, dim_x)
+        self.R = properties.MatrixTemplate(dim_z, dim_z)
+        self.M = properties.MatrixTemplate(dim_x, dim_z)
+        self.z = properties.MatrixTemplate(dim_z, 1)
 
         #pylint: disable=too-many-arguments
 
@@ -438,12 +457,13 @@ class UnscentedKalmanFilter(object):
         **hx_args : keyword argument
             arguments to be passed into h(x) after x -> h(x, **hx_args)
         """
-
         if z is None:
             self.z = np.array([[None]*self._dim_z]).T
             self.x_post = self.x.copy()
             self.P_post = self.P.copy()
             return
+        else:
+            z = properties.as_matrix((self._dim_z, 1), z, 'z')
 
         if hx is None:
             hx = self.hx
@@ -455,16 +475,15 @@ class UnscentedKalmanFilter(object):
             R = self.R
         elif isscalar(R):
             R = eye(self._dim_z) * R
+        else:
+            R = properties.as_matrix((self._dim_z,)*2, R, 'R')
 
         # pass prior sigmas through h(x) to get measurement sigmas
         # the shape of sigmas_h will vary if the shape of z varies, so
         # recreate each time
-        sigmas_h = []
-        for s in self.sigmas_f:
-            sigmas_h.append(hx(s, **hx_args))
-
-        self.sigmas_h = np.atleast_2d(sigmas_h)
-
+        sigmas_h = [hx(s, **hx_args) for s in self.sigmas_f]
+        sigmas_h = np.reshape(sigmas_h, [-1, self._dim_z, 1])
+        
         # mean and covariance of prediction passed through unscented transform
         zp, self.S = UT(self.sigmas_h, self.Wm, self.Wc, R, self.z_mean, self.residual_z)
         self.SI = self.inv(self.S)
@@ -497,6 +516,8 @@ class UnscentedKalmanFilter(object):
 
         Pxz = zeros((sigmas_f.shape[1], sigmas_h.shape[1]))
         N = sigmas_f.shape[0]
+        x = np.reshape(x, (-1,))
+        z = np.reshape(z, (-1,))
         for i in range(N):
             dx = self.residual_x(sigmas_f[i], x)
             dz = self.residual_z(sigmas_h[i], z)
@@ -519,7 +540,7 @@ class UnscentedKalmanFilter(object):
         sigmas = self.points_fn.sigma_points(self.x, self.P)
 
         for i, s in enumerate(sigmas):
-            self.sigmas_f[i] = fx(s, dt, **fx_args)
+            self.sigmas_f[i] = np.squeeze(fx(s, dt, **fx_args))
 
     def batch_filter(self, zs, Rs=None, dts=None, UT=None, saver=None):
         """

@@ -26,8 +26,7 @@ import numpy as np
 from numpy import dot, zeros, eye
 import scipy.linalg as linalg
 from filterpy.stats import logpdf
-from filterpy.common import pretty_str, reshape_z
-
+from filterpy.common import pretty_str, reshape_z, properties
 
 class ExtendedKalmanFilter(object):
 
@@ -128,12 +127,30 @@ class ExtendedKalmanFilter(object):
     See my book Kalman and Bayesian Filters in Python
     https://github.com/rlabbe/Kalman-and-Bayesian-Filters-in-Python
     """
-
+    # overridable parameters guarded by checks
+    x = properties.ClassProperty('x')
+    P = properties.ClassProperty('P')
+    Q = properties.ClassProperty('Q')
+    B = properties.ClassProperty('B')
+    F = properties.ClassProperty('F')
+    R = properties.ClassProperty('R')
+    z = properties.ClassProperty('z')
     def __init__(self, dim_x, dim_z, dim_u=0):
 
         self.dim_x = dim_x
         self.dim_z = dim_z
         self.dim_u = dim_u
+
+        # Set templates that will hook the assignments and cast to
+        # the specific shape
+        self.x = properties.MatrixTemplate(dim_x, 1)
+        self.P = properties.MatrixTemplate(dim_x, dim_x)
+        self.Q = properties.MatrixTemplate(dim_x, dim_x)
+        self.B = properties.MatrixTemplate(dim_x, dim_u)
+        self.F = properties.MatrixTemplate(dim_x, dim_x)
+        self.R = properties.MatrixTemplate(dim_z, dim_z)
+        self.z = properties.MatrixTemplate(dim_z, 1)
+
 
         self.x = zeros((dim_x, 1)) # state
         self.P = eye(dim_x)        # uncertainty covariance
@@ -348,7 +365,9 @@ class ExtendedKalmanFilter(object):
         need to do this, for example, if the usual Taylor expansion to
         generate F is not providing accurate results for you.
         """
-        self.x = dot(self.F, self.x) + dot(self.B, u)
+        u = properties.as_matrix((self.dim_u, 1), u)
+        x = dot(self.F, self.x) + dot(self.B, u)
+        self.x = x
 
     def predict(self, u=0):
         """
