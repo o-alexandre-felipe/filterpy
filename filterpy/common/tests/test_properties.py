@@ -3,9 +3,10 @@ import numpy as np;
 
 # Since tests are meant to be used in development
 # ensure it will not load a system wide version of the package
-sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../../../'))
+if __name__ == '__main__':
+  sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../../../'))
+
 from filterpy.common import properties;
-sys.path = [sys.path[0]] + sys.path[2:]
 
 class PropertyAccess(unittest.TestCase):
   class Class:
@@ -102,7 +103,7 @@ class TestVector(unittest.TestCase):
   
   def test_invalid_1D(self):
     for n in range(2, 5):
-      for x in [list(range(n+1)), list(range(n-1))]:
+      for x in [list(range(1, n+2)), list(range(1, n))]:
         for shape in [(1,n), (n, 1)]:
           ### CHANGE THE TEMPLATE HERE ###
           self.A = properties.MatrixTemplate(*shape)
@@ -231,6 +232,25 @@ class TestMatrixFunctionProperty(unittest.TestCase):
     with self.assertRaises(ValueError):
       self.F(6)
 
+class TestZero(unittest.TestCase):
+  A = properties.ClassProperty('A')
+  F = properties.ClassProperty('F')
+
+  def test_zero_matrix(self):
+    for shape in [(1,4), (5, 1), (3,6), (7,3)]:
+      self.A = properties.MatrixTemplate(*shape)
+      self.A = 0
+      self.assertTrue(np.all(self.A == 0))
+      self.assertEqual(self.A.shape, shape)
+
+  def test_zero_matrix_function(self):
+    def zero():
+      return 0
+    for shape in [(1,4), (5, 1), (3,6), (7,3)]:
+      self.F = properties.MatrixFunctionTemplate(*shape)
+      self.F = zero
+      self.assertTrue(np.all(self.F() == 0))
+      self.assertEqual(self.F().shape, shape)
 
 if __name__ == '__main__':
   unittest.main(verbosity=1);

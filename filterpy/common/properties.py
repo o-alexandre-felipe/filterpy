@@ -70,18 +70,27 @@ def as_matrix(shape, v, name='matrix', multiplicative=True):
   '''
     Ensures that v is a matrix of the given shape. Axes of length 1 may be 
     added or removed to match the given shape
+
+    Square multiplicative matrix accepts scalar, in this case the result is
+    the identity matrix multiplied by the given scalar.
+    
+    Any matrix type may be set to the all zeros matrix of the exepcted shape
+    by passing v = 0.
   '''
   M,N = shape
   m = np.squeeze(v)
-  
+
   if (M,N) == m.shape:
     return m
-  elif m.ndim <= 1 and (M == 1 or N == 1):
+  if m.ndim == 0:
+    if m == 0:
+      return np.zeros((M, N))
+    elif multiplicative and M == N:
+      return m * np.eye(M, N)
+  if m.ndim <= 1 and (M == 1 or N == 1):
     return m.reshape((M, N))
-  elif multiplicative and m.ndim == 0 and M == N:
-    return m * np.eye(M, N)
-  else:
-    raise ValueError("Expected {} to be of shape {}, value has shape {}"
+  # Any of the above cases matched
+  raise ValueError("Expected {} to be of shape {}, value has shape {}"
       .format(name, shape, m.shape))
 
 class MatrixTemplate(Template):
