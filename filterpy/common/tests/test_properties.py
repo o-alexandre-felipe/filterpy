@@ -148,6 +148,18 @@ class TestMatrix(unittest.TestCase):
     
     self.A = np.zeros((m,n))
 
+  def test_multiplicative(self):
+    self.A = properties.MatrixTemplate(4,4,multiplicative=True)
+    self.A = 4
+    self.assertTrue(np.allclose(self.A, 4 * np.eye(4)))
+    with self.assertRaises(ValueError):
+      self.A = np.ones(4)
+    
+    self.A = properties.MatrixTemplate(4,4,multiplicative=False)
+    with self.assertRaises(ValueError):
+      self.A = 4
+    with self.assertRaises(ValueError):
+      self.A = np.ones(4)
 
 class TestMatrixFunctionProperty(unittest.TestCase):
   F = properties.ClassProperty('F')
@@ -189,6 +201,35 @@ class TestMatrixFunctionProperty(unittest.TestCase):
 
     with self.assertRaises(ValueError):
       self.F() # when f is called it will see an invalid value
+
+  def test_multiplicativify_of_function(self):
+    # Non multiplicative template
+    self.F = properties.MatrixFunctionTemplate(4,4,multiplicative=False)
+    def identity(x): return x
+    # Undecorated function
+    self.F = identity
+    with self.assertRaises(ValueError):
+      self.F(4)
+    self.assertTrue(np.allclose(self.F(4*np.eye(4)), 4*np.eye(4)))
+
+    # Non multiplicative template multiplicative function
+    self.F = properties.DecoratedMatrixFunction((4,4), identity, multiplicative=True)
+    self.assertTrue(np.allclose(self.F(4*np.eye(4)), 4*np.eye(4)))
+
+    # Multiplicative template
+    self.F = properties.MatrixFunctionTemplate(4,4,multiplicative=False)
+    # Multiplicative template undecorated function
+    self.F = identity
+    self.assertTrue(np.allclose(self.F(4*np.eye(4)), 4*np.eye(4)))
+
+    # Multiplicative template multiplicative function
+    self.F = properties.DecoratedMatrixFunction((4,4), identity, multiplicative=True)
+    self.assertTrue(np.allclose(self.F(4*np.eye(4)), 4*np.eye(4)))
+
+    # Multiplicative template non-multiplicative function
+    self.F = properties.DecoratedMatrixFunction((4,4), identity, multiplicative=False)
+    with self.assertRaises(ValueError):
+      self.F(6)
 
 
 if __name__ == '__main__':
