@@ -16,6 +16,9 @@ for more information.
 
 from __future__ import absolute_import, division, print_function
 
+if __name__ == '__main__':
+    import sys, os;
+    sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../../../'))
 
 import numpy.random as random
 from numpy.random import randn
@@ -266,7 +269,7 @@ def test_batch_filter():
     f.H = np.array([[1., 0.]])    # Measurement function
     f.P *= 1000.                  # covariance matrix
     f.R = 5                       # state uncertainty
-    f.Q = 0.0001                  # process uncertainty
+    f.Q *= 0.0001                 # process uncertainty
 
     zs = [None, 1., 2.]
     m, c, _, _ = f.batch_filter(zs, update_first=False)
@@ -371,8 +374,6 @@ def test_procedural_batch_filter():
     f.R = np.eye(1) * 5
     f.Q = Q_discrete_white_noise(2, 1., 0.0001)
 
-    f.test_matrix_dimensions()
-
     x = np.array([2., 0])
 
     F = np.array([[1., 1.],
@@ -439,15 +440,14 @@ def class_form():
 
 def test_z_dim():
     f = const_vel_filter(1.0, x0=2, R_std=1., Q_var=5.1)
-    f.test_matrix_dimensions()
     f.update(3.)
-    assert f.x.shape == (2,)
+    assert f.x.shape == (2,1)
 
     f.update([3])
-    assert f.x.shape == (2,)
+    assert f.x.shape == (2,1)
 
     f.update(np.array([[3]]))
-    assert f.x.shape == (2,)
+    assert f.x.shape == (2,1)
 
     try:
         f.update(np.array([[[3]]]))
@@ -487,82 +487,13 @@ def test_z_dim():
 
     # now make sure test_matrix_dimensions() is working
 
-    f.test_matrix_dimensions()
-    try:
-        f.H = 3
-        f.test_matrix_dimensions()
-        assert False, "test_matrix_dimensions should have asserted on shape of H"
-    except:
-        pass
-
-    f = const_vel_filter_2d(1.0, R_std=1., Q_var=5.1)
-    try:
-        f.R = 3
-        f.test_matrix_dimensions()
-        assert False, "test_matrix_dimensions should have asserted on shape of R"
-    except:
-        pass
-
-    try:
-        f.R = [3]
-        f.test_matrix_dimensions()
-        assert False, "test_matrix_dimensions should have asserted on shape of R"
-    except:
-        pass
-
-    try:
-        f.R = [3, 4.]
-        f.test_matrix_dimensions()
-        assert False, "test_matrix_dimensions should have asserted on shape of R"
-    except:
-        pass
-
     f.R = np.diag([3, 4.])
-    f.test_matrix_dimensions()
 
 
     f = const_vel_filter(1.0, x0=2, R_std=1., Q_var=5.1)
 
-    #test case where x is 1d array
-    f.update([[3]])
-    f.test_matrix_dimensions(z=3.)
-    f.test_matrix_dimensions(z=[3.])
-
-    # test case whre x is 2d array
-    f.x = np.array([[0., 0.]]).T
-    f.update([[3]])
-    f.test_matrix_dimensions(z=3.)
-    f.test_matrix_dimensions(z=[3.])
-
-    try:
-        f.test_matrix_dimensions(z=[[3.]])
-        assert False, "test_matrix_dimensions should have asserted on shape of z"
-    except:
-        pass
-
+    
     f = const_vel_filter_2d(1.0, R_std=1., Q_var=5.1)
-
-    # test for 1D value for x, then set to a 2D vector and try again
-    for i in range(2):
-        try:
-            f.test_matrix_dimensions(z=3.)
-            assert False, "test_matrix_dimensions should have asserted on shape of z"
-        except:
-            pass
-
-        try:
-            f.test_matrix_dimensions(z=[3.])
-            assert False, "test_matrix_dimensions should have asserted on shape of z"
-        except:
-            pass
-
-        try:
-            f.test_matrix_dimensions(z=[3., 3.])
-            assert False, "test_matrix_dimensions should have asserted on shape of z"
-        except:
-            pass
-        f.test_matrix_dimensions(z=[[3.], [3.]])
-        f.x = np.array([[1, 2, 3, 4.]]).T
 
 
 def test_default_dims():

@@ -127,8 +127,7 @@ import numpy as np
 from numpy import dot, zeros, eye, isscalar, shape
 import numpy.linalg as linalg
 from filterpy.stats import logpdf
-from filterpy.common import pretty_str, reshape_z
-
+from filterpy.common import pretty_str, reshape_z, properties
 
 class KalmanFilter(object):
     r""" Implements a Kalman filter. You are responsible for setting the
@@ -389,6 +388,17 @@ class KalmanFilter(object):
 
     """
 
+    # overridable parameters guarded by checks
+    x = properties.ClassProperty('x')
+    P = properties.ClassProperty('P')
+    Q = properties.ClassProperty('Q')
+    B = properties.ClassProperty('B')
+    F = properties.ClassProperty('F')
+    H = properties.ClassProperty('H')
+    R = properties.ClassProperty('R')
+    M = properties.ClassProperty('M')
+    z = properties.ClassProperty('z')
+    
     def __init__(self, dim_x, dim_z, dim_u=0):
         if dim_x < 1:
             raise ValueError('dim_x must be 1 or greater')
@@ -396,15 +406,31 @@ class KalmanFilter(object):
             raise ValueError('dim_z must be 1 or greater')
         if dim_u < 0:
             raise ValueError('dim_u must be 0 or greater')
+        
+
 
         self.dim_x = dim_x
         self.dim_z = dim_z
         self.dim_u = dim_u
+        
+        self.B = None
+
+        # Set templates that will hook the assignments and cast to
+        # the specific shape
+        self.x = properties.MatrixTemplate(dim_x, 1)
+        self.P = properties.MatrixTemplate(dim_x, dim_x)
+        self.Q = properties.MatrixTemplate(dim_x, dim_x)
+        self.B = properties.MatrixTemplate(dim_x, dim_u)
+        self.F = properties.MatrixTemplate(dim_x, dim_x)
+        self.H = properties.MatrixTemplate(dim_z, dim_x)
+        self.R = properties.MatrixTemplate(dim_z, dim_z)
+        self.M = properties.MatrixTemplate(dim_x, dim_z)
+        self.z = properties.MatrixTemplate(dim_z, 1)
+        
 
         self.x = zeros((dim_x, 1))        # state
         self.P = eye(dim_x)               # uncertainty covariance
         self.Q = eye(dim_x)               # process uncertainty
-        self.B = None                     # control transition matrix
         self.F = eye(dim_x)               # state transition matrix
         self.H = zeros((dim_z, dim_x))    # measurement function
         self.R = eye(dim_z)               # measurement uncertainty
@@ -437,7 +463,6 @@ class KalmanFilter(object):
         self._mahalanobis = None
 
         self.inv = np.linalg.inv
-
 
     def predict(self, u=None, B=None, F=None, Q=None):
         """
@@ -475,6 +500,7 @@ class KalmanFilter(object):
 
         # x = Fx + Bu
         if B is not None and u is not None:
+            u = properties.as_matrix((self.dim_u, 1), u, 'u')
             self.x = dot(F, self.x) + dot(B, u)
         else:
             self.x = dot(F, self.x)
@@ -523,6 +549,8 @@ class KalmanFilter(object):
             self.P_post = self.P.copy()
             self.y = zeros((self.dim_z, 1))
             return
+        else:
+            z = properties.as_matrix((self.dim_z, 1), z, 'z')
 
         if R is None:
             R = self.R
@@ -589,6 +617,7 @@ class KalmanFilter(object):
 
         # x = Fx + Bu
         if B is not None:
+            u = properties.as_matrix((self.dim_u, 1), u, 'u')
             self.x = dot(self.F, self.x) + dot(B, u)
         else:
             self.x = dot(self.F, self.x)
@@ -652,6 +681,8 @@ class KalmanFilter(object):
             self.P_post = self.P.copy()
             self.y = zeros((self.dim_z, 1))
             return
+        else:
+            z = properties.as_matrix((self.dim_z, 1), z, 'z')
 
         z = reshape_z(z, self.dim_z, self.x.ndim)
 
@@ -713,6 +744,9 @@ class KalmanFilter(object):
             self.P_post = self.P.copy()
             self.y = zeros((self.dim_z, 1))
             return
+        else:
+            z = properties.as_matrix((self.dim_z, 1), z, 'z')
+
 
         if R is None:
             R = self.R
@@ -882,7 +916,7 @@ class KalmanFilter(object):
         if Bs is None:
             Bs = [self.B] * n
         if us is None:
-            us = [0] * n
+            us = np.zeros(n)
 
         # mean estimates from Kalman Filter
         if self.x.ndim == 1:
@@ -1228,108 +1262,6 @@ class KalmanFilter(object):
             pretty_str('inv', self.inv)
             ])
 
-    def test_matrix_dimensions(self, z=None, H=None, R=None, F=None, Q=None):
-        """
-        Performs a series of asserts to check that the size of everything
-        is what it should be. This can help you debug problems in your design.
-
-        If you pass in H, R, F, Q those will be used instead of this object's
-        value for those matrices.
-
-        Testing `z` (the measurement) is problamatic. x is a vector, and can be
-        implemented as either a 1D array or as a nx1 column vector. Thus Hx
-        can be of different shapes. Then, if Hx is a single value, it can
-        be either a 1D array or 2D vector. If either is true, z can reasonably
-        be a scalar (either '3' or np.array('3') are scalars under this
-        definition), a 1D, 1 element array, or a 2D, 1 element array. You are
-        allowed to pass in any combination that works.
-        """
-
-        if H is None:
-            H = self.H
-        if R is None:
-            R = self.R
-        if F is None:
-            F = self.F
-        if Q is None:
-            Q = self.Q
-        x = self.x
-        P = self.P
-
-        assert x.ndim == 1 or x.ndim == 2, \
-                "x must have one or two dimensions, but has {}".format(x.ndim)
-
-        if x.ndim == 1:
-            assert x.shape[0] == self.dim_x, \
-                   "Shape of x must be ({},{}), but is {}".format(
-                       self.dim_x, 1, x.shape)
-        else:
-            assert x.shape == (self.dim_x, 1), \
-                   "Shape of x must be ({},{}), but is {}".format(
-                       self.dim_x, 1, x.shape)
-
-        assert P.shape == (self.dim_x, self.dim_x), \
-               "Shape of P must be ({},{}), but is {}".format(
-                   self.dim_x, self.dim_x, P.shape)
-
-        assert Q.shape == (self.dim_x, self.dim_x), \
-               "Shape of Q must be ({},{}), but is {}".format(
-                   self.dim_x, self.dim_x, P.shape)
-
-        assert F.shape == (self.dim_x, self.dim_x), \
-               "Shape of F must be ({},{}), but is {}".format(
-                   self.dim_x, self.dim_x, F.shape)
-
-        assert np.ndim(H) == 2, \
-               "Shape of H must be (dim_z, {}), but is {}".format(
-                   P.shape[0], shape(H))
-
-        assert H.shape[1] == P.shape[0], \
-               "Shape of H must be (dim_z, {}), but is {}".format(
-                   P.shape[0], H.shape)
-
-        # shape of R must be the same as HPH'
-        hph_shape = (H.shape[0], H.shape[0])
-        r_shape = shape(R)
-
-        if H.shape[0] == 1:
-            # r can be scalar, 1D, or 2D in this case
-            assert r_shape in [(), (1,), (1, 1)], \
-            "R must be scalar or one element array, but is shaped {}".format(
-                r_shape)
-        else:
-            assert r_shape == hph_shape, \
-            "shape of R should be {} but it is {}".format(hph_shape, r_shape)
-
-
-        if z is not None:
-            z_shape = shape(z)
-        else:
-            z_shape = (self.dim_z, 1)
-
-        # H@x must have shape of z
-        Hx = dot(H, x)
-
-        if z_shape == (): # scalar or np.array(scalar)
-            assert Hx.ndim == 1 or shape(Hx) == (1, 1), \
-            "shape of z should be {}, not {} for the given H".format(
-                shape(Hx), z_shape)
-
-        elif shape(Hx) == (1,):
-            assert z_shape[0] == 1, 'Shape of z must be {} for the given H'.format(shape(Hx))
-
-        else:
-            assert (z_shape == shape(Hx) or
-                    (len(z_shape) == 1 and shape(Hx) == (z_shape[0], 1))), \
-                    "shape of z should be {}, not {} for the given H".format(
-                        shape(Hx), z_shape)
-
-        if np.ndim(Hx) > 1 and shape(Hx) != (1, 1):
-            assert shape(Hx) == z_shape, \
-               'shape of z should be {} for the given H, but it is {}'.format(
-                   shape(Hx), z_shape)
-
-
 def update(x, P, z, R, H=None, return_all=False):
     """
     Add a new measurement (z) to the Kalman filter. If z is None, nothing
@@ -1674,15 +1606,12 @@ def batch_filter(x, P, zs, Fs, Qs, Hs, Rs, Bs=None, us=None,
     """
 
     n = np.size(zs, 0)
+    x = np.squeeze(x)[:, None];
     dim_x = x.shape[0]
 
     # mean estimates from Kalman Filter
-    if x.ndim == 1:
-        means = zeros((n, dim_x))
-        means_p = zeros((n, dim_x))
-    else:
-        means = zeros((n, dim_x, 1))
-        means_p = zeros((n, dim_x, 1))
+    means = zeros((n, dim_x, 1))
+    means_p = zeros((n, dim_x, 1))
 
     # state covariances from Kalman Filter
     covariances = zeros((n, dim_x, dim_x))
@@ -1696,24 +1625,24 @@ def batch_filter(x, P, zs, Fs, Qs, Hs, Rs, Bs=None, us=None,
         for i, (z, F, Q, H, R, B, u) in enumerate(zip(zs, Fs, Qs, Hs, Rs, Bs, us)):
 
             x, P = update(x, P, z, R=R, H=H)
-            means[i, :] = x
-            covariances[i, :, :] = P
+            means[i, ...] = x
+            covariances[i, ...] = P
 
             x, P = predict(x, P, u=u, B=B, F=F, Q=Q)
             means_p[i, :] = x
-            covariances_p[i, :, :] = P
+            covariances_p[i, ...] = P
             if saver is not None:
                 saver.save()
     else:
         for i, (z, F, Q, H, R, B, u) in enumerate(zip(zs, Fs, Qs, Hs, Rs, Bs, us)):
 
             x, P = predict(x, P, u=u, B=B, F=F, Q=Q)
-            means_p[i, :] = x
-            covariances_p[i, :, :] = P
+            means_p[i, ...] = x
+            covariances_p[i, ...] = P
 
             x, P = update(x, P, z, R=R, H=H)
-            means[i, :] = x
-            covariances[i, :, :] = P
+            means[i, ...] = x
+            covariances[i, ...] = P
             if saver is not None:
                 saver.save()
 
