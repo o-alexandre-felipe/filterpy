@@ -22,9 +22,13 @@ from __future__ import (absolute_import, division, print_function,
 import matplotlib.pyplot as plt
 from math import sqrt
 import numpy as np
-from filterpy.kalman import ExtendedKalmanFilter
 from numpy import array, eye, asarray
 
+if __name__ == '__main__':
+    import sys, os;
+    sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../../../'))
+
+from filterpy.kalman import ExtendedKalmanFilter
 from filterpy.common import Saver
 from filterpy.examples import RadarSim
 from pytest import approx

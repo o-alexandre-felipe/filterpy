@@ -21,6 +21,7 @@ for more information.
 
 from __future__ import (absolute_import, division, print_function,
                         unicode_literals)
+
 from math import cos, sin
 import matplotlib.pyplot as plt
 import numpy.random as random
@@ -30,6 +31,11 @@ import numpy as np
 from pytest import approx
 import scipy.linalg as linalg
 from scipy.spatial.distance import mahalanobis as scipy_mahalanobis
+
+if __name__ == '__main__':
+    import sys, os;
+    sys.path.insert(1, os.path.join(os.path.dirname(__file__), '../../../'))
+
 from filterpy.kalman import ExtendedKalmanFilter
 from filterpy.kalman import UnscentedKalmanFilter
 from filterpy.kalman import (unscented_transform, MerweScaledSigmaPoints,
@@ -1076,7 +1082,7 @@ def test_vhartman():
 if __name__ == "__main__":
     plt.close('all')
 
-    test_vhartman()
+    #test_vhartman()
     test_simplex_sigma_points_2D()
 
     test_julier_sigma_points_1D()
